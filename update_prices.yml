@@ -2,9 +2,9 @@ name: Update ETF Prices
 
 on:
   schedule:
-    - cron: '30 17 * * 1-5'  # ogni giorno feriale alle 17:30 UTC (18:30 ora italiana)
-  workflow_dispatch:           # permette lancio manuale dalla pagina GitHub
-
+    - cron: '30 17 * * 1-5'
+  workflow_dispatch:
+  
 jobs:
   update:
     runs-on: ubuntu-latest
