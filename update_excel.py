@@ -2,7 +2,7 @@
 # Scarica i nuovi prezzi ETF da GitHub e aggiunge le nuove righe
 # in fondo allo sheet "Raw Data" di Portafoglio Vittorio PRO.xlsx.
 # I 3 fondi (LU1883307461, IT0001080446, LU1883328467) vengono
-# mantenuti con forward fill — aggiornali manualmente nei NAV.
+# mantenuti con forward fill — aggiornali manualmente quando hai i NAV.
 #
 # USO: python update_excel.py
 # REQUISITI: pip install pandas openpyxl requests
@@ -11,7 +11,6 @@ import requests
 import pandas as pd
 from io import StringIO
 from openpyxl import load_workbook
-import datetime
 
 # ── Configurazione ────────────────────────────────────────────────────────────
 GITHUB_USER   = "VitAluigi"
@@ -40,38 +39,27 @@ print(f"\n2. Opening Excel...")
 wb = load_workbook(EXCEL_PATH)
 ws = wb[SHEET_NAME]
 
-# Leggi header (riga 1)
+# Header (riga 1) → mappa ISIN: colonna 1-based
 headers = [cell.value for cell in ws[1]]
-col_idx = {h: i+1 for i, h in enumerate(headers) if h}  # {ISIN: colonna}
-print(f"   Columns: {list(col_idx.keys())}")
+col_idx = {h: i+1 for i, h in enumerate(headers) if h}
 
-# Trova ultima riga con data
-last_row = 1
+# Ultima riga con data e ultimo NAV dei fondi (0-based row tuple)
 last_date = None
+last_fund_vals = {}
 for row in ws.iter_rows(min_row=2, values_only=True):
     if row[0] is not None:
-        last_row += 1
         last_date = pd.Timestamp(row[0])
+    for fund in FUND_COLS:
+        if fund in col_idx:
+            val = row[col_idx[fund]-1]  # col_idx 1-based → tuple 0-based
+            if val is not None:
+                last_fund_vals[fund] = val
 
-print(f"   Last row: {last_row}, last date: {last_date.date() if last_date else 'N/A'}")
-
-# Trova ultimo NAV dei 3 fondi per forward fill
-last_fund_vals = {}
-for fund in FUND_COLS:
-    if fund in col_idx:
-        col = col_idx[fund]
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            if row[col-1] is not None:
-                last_fund_vals[fund] = row[col-1]
-
+print(f"   Last date in Raw Data: {last_date.date() if last_date else 'N/A'}")
 print(f"   Last fund NAVs: { {k: round(v,4) for k,v in last_fund_vals.items()} }")
 
 # ── 3. Trova nuove date ───────────────────────────────────────────────────────
-if last_date is None:
-    print("Raw Data vuoto — aggiungendo tutti i dati")
-    new_dates = new_prices
-else:
-    new_dates = new_prices[new_prices.index > last_date]
+new_dates = new_prices[new_prices.index > last_date] if last_date else new_prices
 
 if new_dates.empty:
     print("\nNessuna nuova riga. Raw Data già aggiornato.")
@@ -80,20 +68,17 @@ if new_dates.empty:
 
 print(f"\n3. Nuove righe: {len(new_dates)} ({new_dates.index.min().date()} → {new_dates.index.max().date()})")
 
-# ── 4. Scrivi nuove righe ─────────────────────────────────────────────────────
-print(f"\n4. Writing to Excel starting from row {last_row + 1}...")
-write_row = last_row + 1
+# ── 4. Scrivi nuove righe in fondo ───────────────────────────────────────────
+write_row = ws.max_row + 1
+print(f"   Writing from row {write_row}...")
 
 for date, prices in new_dates.iterrows():
-    # Data
     ws.cell(row=write_row, column=col_idx["Date"], value=date.date())
 
-    # ETF — prezzi da GitHub
     for isin in ETF_COLS:
         if isin in col_idx and isin in prices and pd.notna(prices[isin]):
             ws.cell(row=write_row, column=col_idx[isin], value=round(float(prices[isin]), 6))
 
-    # Fondi — forward fill
     for fund in FUND_COLS:
         if fund in col_idx and fund in last_fund_vals:
             ws.cell(row=write_row, column=col_idx[fund], value=last_fund_vals[fund])
