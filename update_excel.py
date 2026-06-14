@@ -19,7 +19,7 @@ import datetime
 # ── Configurazione ────────────────────────────────────────────────────────────
 # URL raw del CSV su GitHub (aggiorna con il tuo username/repo)
 GITHUB_USER  = "VitAluigi"
-GITHUB_REPO  = "ETF-Prices"          # nome della nuova repo
+GITHUB_REPO  = "Download-Prices"
 GITHUB_BRANCH = "main"
 CSV_PATH_IN_REPO = "data/ETF_Prices.csv"
 
